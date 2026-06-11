@@ -1,0 +1,14 @@
+# System Requirements for KomorebiSpace
+
+# Java SDK (Backend Compilation and Execution)
+Java>=21
+
+# Node.js and Package Manager (Frontend Dev & Build)
+Node.js>=20.0.0
+NPM>=10.0.0
+
+# Build Tool (Backend Dependency Management)
+Maven>=3.9.0
+
+# Relational Database (Production Database Engine)
+PostgreSQL>=15.0

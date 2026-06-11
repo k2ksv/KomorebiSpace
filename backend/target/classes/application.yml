@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:komorebi_db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  jwt:
+    # 256-bit secure secret key for signing tokens
+    secret: 9a7263b65287f394c86d8b4e723901bcf5a3c10e42d7c0fb8dcd1e5a20f92b45
+    # Token expiration time in milliseconds (24 hours)
+    expiration-ms: 86400000
+
+server:
+  port: 8080
