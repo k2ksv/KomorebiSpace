@@ -5,6 +5,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,6 +29,12 @@ public class TimerController {
     ) {
         if (user == null) {
             return ResponseEntity.status(401).build();
+        }
+        if (!request.hasValidTimeRange()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start and end times must form a valid past time range");
+        }
+        if (!request.durationMatchesTimeRange()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Duration must match the start and end time range");
         }
 
         StudyLog studyLog = StudyLog.builder()

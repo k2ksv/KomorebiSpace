@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 export interface User {
@@ -11,22 +11,20 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, username: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const API_BASE_URL = 'http://localhost:8080/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -34,28 +32,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load and validate token on startup
   useEffect(() => {
     async function loadStoredAuth() {
-      const storedToken = localStorage.getItem('komorebi_token');
-      if (!storedToken) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
         const response = await fetch(`${API_BASE_URL}/auth/me`, {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${storedToken}`,
-            'Content-Type': 'application/json',
-          },
+          credentials: 'include',
         });
 
         if (response.ok) {
           const userData = await response.json();
           setUser(userData);
-          setToken(storedToken);
-        } else {
-          // Token expired or invalid
-          localStorage.removeItem('komorebi_token');
         }
       } catch (err) {
         console.error('Failed to validate token:', err);
@@ -73,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
@@ -83,8 +69,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.message || 'Login failed. Please check credentials.');
       }
 
-      localStorage.setItem('komorebi_token', data.token);
-      setToken(data.token);
       setUser({
         id: data.id,
         username: data.username,
@@ -92,8 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       router.push('/dashboard');
       return true;
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during login');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred during login');
       return false;
     } finally {
       setIsLoading(false);
@@ -106,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, username, password }),
       });
@@ -116,8 +101,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.message || 'Registration failed. User may already exist.');
       }
 
-      localStorage.setItem('komorebi_token', data.token);
-      setToken(data.token);
       setUser({
         id: data.id,
         username: data.username,
@@ -125,28 +108,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       router.push('/dashboard');
       return true;
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during registration');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred during registration');
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('komorebi_token');
-    setToken(null);
+  const logout = async () => {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => undefined);
     setUser(null);
     router.push('/login');
   };
 
-  const clearError = () => setError(null);
+  const clearError = useCallback(() => setError(null), []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        token,
         isLoading,
         error,
         login,

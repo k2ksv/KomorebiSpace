@@ -14,12 +14,14 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    clearError();
-    setFormError(null);
+    queueMicrotask(() => {
+      clearError();
+      setFormError(null);
+    });
     if (user) {
       router.replace('/dashboard');
     }
-  }, [user, router]);
+  }, [user, router, clearError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

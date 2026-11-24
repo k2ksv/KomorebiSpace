@@ -1,21 +1,50 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, API_BASE_URL } from '@/context/AuthContext';
 import Sidebar from '@/components/Sidebar';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Flame, Clock, Calendar, PieChart as PieIcon, TrendingUp, HelpCircle } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Flame, Clock, Calendar, PieChart as PieIcon, TrendingUp } from 'lucide-react';
+
+interface DailyFocus { date: string; durationSeconds: number }
+interface CategoryFocus { category: string; durationSeconds: number }
+interface AnalyticsData {
+  totalDurationSeconds: number;
+  totalSessions: number;
+  averageSessionDurationSeconds: number;
+  currentStreak: number;
+  dailyTrend: DailyFocus[];
+  categoryDistribution: CategoryFocus[];
+}
+
+interface TooltipPayload {
+  value: number;
+  payload: DailyFocus;
+}
+
+function AnalyticsTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayload[] }) {
+  if (!active || !payload?.length) return null;
+  const seconds = payload[0].value;
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const formatted = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  return (
+    <div className="bg-zinc-900/90 border border-zinc-800 p-3.5 rounded-xl shadow-xl font-mono text-xs text-zinc-300">
+      <p className="font-semibold text-white mb-1">{payload[0].payload.date}</p>
+      <p className="text-emerald-400">Time Focused: <span className="font-bold">{formatted}</span></p>
+    </div>
+  );
+}
 
 export default function AnalyticsPage() {
-  const { user, token, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
   // Page States
   const [days, setDays] = useState(7);
-  const [analyticsData, setAnalyticsData] = useState<any | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
 
   // Protect Route
   useEffect(() => {
@@ -24,18 +53,13 @@ export default function AnalyticsPage() {
     }
   }, [user, authLoading, router]);
 
-  // Set mounted state to bypass Next SSR for Recharts
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // Fetch Analytics from Backend
-  const fetchAnalytics = async () => {
-    if (!token) return;
+  const fetchAnalytics = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/analytics?days=${days}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -49,13 +73,11 @@ export default function AnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [days, user]);
 
   useEffect(() => {
-    if (user && token) {
-      fetchAnalytics();
-    }
-  }, [user, token, days]);
+    if (user) queueMicrotask(fetchAnalytics);
+  }, [fetchAnalytics, user]);
 
   // Helper formatting functions
   const formatTotalTime = (totalSecs: number) => {
@@ -80,21 +102,6 @@ export default function AnalyticsPage() {
     return `${mins}m`;
   };
 
-  // Recharts Custom Tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const seconds = payload[0].value;
-      const formatted = formatTotalTime(seconds);
-      return (
-        <div className="bg-zinc-900/90 border border-zinc-800 p-3.5 rounded-xl shadow-xl font-mono text-xs text-zinc-300">
-          <p className="font-semibold text-white mb-1">{payload[0].payload.date}</p>
-          <p className="text-emerald-400">Time Focused: <span className="font-bold">{formatted}</span></p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   // Pie Chart Colors mapping
   const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899'];
 
@@ -107,7 +114,7 @@ export default function AnalyticsPage() {
   }
 
   // Pre-process Category Data for Pie Chart
-  const pieData = analyticsData?.categoryDistribution?.map((cat: any) => ({
+  const pieData = analyticsData?.categoryDistribution?.map((cat) => ({
     name: cat.category,
     value: cat.durationSeconds,
   })) || [];
@@ -149,6 +156,26 @@ export default function AnalyticsPage() {
           </div>
         ) : (
           <>
+            <section className="glass-panel rounded-2xl border border-zinc-800 p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-white">Focus activity</h2>
+                <span className="text-xs text-zinc-500">Last 30 days</span>
+              </div>
+              <div className="grid grid-cols-10 gap-2 sm:grid-cols-[repeat(15,minmax(0,1fr))]">
+                {analyticsData.dailyTrend.map((day) => {
+                  const level = day.durationSeconds === 0 ? 0 : day.durationSeconds < 1800 ? 1 : day.durationSeconds < 3600 ? 2 : day.durationSeconds < 7200 ? 3 : 4;
+                  const colors = ['bg-zinc-900', 'bg-emerald-950', 'bg-emerald-800', 'bg-emerald-600', 'bg-emerald-400'];
+                  return (
+                    <div
+                      key={day.date}
+                      title={`${day.date}: ${formatTotalTime(day.durationSeconds)}`}
+                      className={`aspect-square min-h-4 rounded-md ${colors[level]} border border-white/5`}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+
             {/* Metric Summary Cards */}
             <section className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {/* Total Duration */}
@@ -222,7 +249,7 @@ export default function AnalyticsPage() {
                 </h2>
 
                 <div className="flex-1 min-h-0">
-                  {mounted && analyticsData.dailyTrend.length > 0 ? (
+                  {typeof window !== 'undefined' && analyticsData.dailyTrend.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={analyticsData.dailyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
@@ -250,7 +277,7 @@ export default function AnalyticsPage() {
                           axisLine={false}
                           tickFormatter={formatChartYAxis}
                         />
-                        <Tooltip content={<CustomTooltip />} />
+                        <Tooltip content={<AnalyticsTooltip />} />
                         <Area
                           type="monotone"
                           dataKey="durationSeconds"
@@ -277,7 +304,7 @@ export default function AnalyticsPage() {
                 </h2>
 
                 <div className="flex-1 min-h-0 flex flex-col justify-center items-center">
-                  {mounted && pieData.length > 0 ? (
+                  {typeof window !== 'undefined' && pieData.length > 0 ? (
                     <>
                       <div className="w-full h-[220px]">
                         <ResponsiveContainer width="100%" height="100%">
@@ -291,12 +318,12 @@ export default function AnalyticsPage() {
                               paddingAngle={4}
                               dataKey="value"
                             >
-                              {pieData.map((entry: any, index: number) => (
+                              {pieData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#18181b" strokeWidth={1} />
                               ))}
                             </Pie>
                             <Tooltip
-                              formatter={(value: any) => [formatTotalTime(Number(value || 0)), 'Time Focused']}
+                              formatter={(value) => [formatTotalTime(Number(value || 0)), 'Time Focused']}
                               contentStyle={{ background: '#18181b', borderColor: '#27272a', borderRadius: '12px', fontSize: '11px', color: '#d4d4d8' }}
                             />
                           </PieChart>
@@ -305,7 +332,7 @@ export default function AnalyticsPage() {
 
                       {/* Custom Category Legend */}
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-[10px] w-full text-zinc-400 font-medium">
-                        {pieData.map((entry: any, index: number) => (
+                        {pieData.map((entry, index) => (
                           <div key={entry.name} className="flex items-center gap-2 truncate">
                             <span
                               className="w-2.5 h-2.5 rounded-full flex-shrink-0"

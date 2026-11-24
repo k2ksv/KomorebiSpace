@@ -20,11 +20,15 @@ spring:
         format_sql: true
 
 app:
+  cookie:
+    secure: ${COOKIE_SECURE:false}
+    cross-site: ${COOKIE_CROSS_SITE:false}
   jwt:
-    # 256-bit secure secret key for signing tokens
-    secret: 9a7263b65287f394c86d8b4e723901bcf5a3c10e42d7c0fb8dcd1e5a20f92b45
+    secret: ${JWT_SECRET:komorebi-local-development-secret-change-in-production}
     # Token expiration time in milliseconds (24 hours)
     expiration-ms: 86400000
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
 server:
   port: 8080

@@ -105,6 +105,20 @@ npm run dev
 ```
 Open **[http://localhost:3000](http://localhost:3000)** in your browser to start focusing!
 
+## Docker deployment
+
+Production containers require Docker Engine and Docker Compose:
+
+```bash
+cp .env.example .env
+# Replace the placeholder passwords and JWT secret in .env
+docker compose up --build -d
+```
+
+The compose stack provides PostgreSQL, the Spring Boot backend, and the Next.js frontend.
+Set `CORS_ALLOWED_ORIGINS` and `NEXT_PUBLIC_API_BASE_URL` to the public frontend/backend URLs.
+For a single public HTTPS domain, set `DOMAIN`, keep `NEXT_PUBLIC_API_BASE_URL=/api`, and start Caddy.
+
 ---
 
 ## 📡 API Endpoint Overview

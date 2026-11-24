@@ -23,6 +23,10 @@ body {
   overflow-x: hidden;
 }
 
+button, select {
+  cursor: pointer;
+}
+
 /* Glassmorphism Classes */
 .glass-panel {
   background: rgba(24, 24, 27, 0.7);

@@ -4,18 +4,15 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Clock, BarChart3, LogOut, User, Compass, Server } from 'lucide-react';
+import { Clock3, ChartNoAxesColumnIncreasing, LogOut, User } from 'lucide-react';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
 
   const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: Clock, id: 'nav-dashboard' },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3, id: 'nav-analytics' },
-    // Phase 2 placeholders
-    { name: 'Servers (Phase 2)', href: '#', icon: Server, id: 'nav-servers', disabled: true },
-    { name: 'Explore (Phase 3)', href: '#', icon: Compass, id: 'nav-explore', disabled: true },
+    { name: 'Focus', href: '/dashboard', icon: Clock3, id: 'nav-dashboard' },
+    { name: 'Insights', href: '/analytics', icon: ChartNoAxesColumnIncreasing, id: 'nav-analytics' },
   ];
 
   return (
@@ -55,19 +52,6 @@ export default function Sidebar() {
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
-
-          if (item.disabled) {
-            return (
-              <div
-                key={item.name}
-                id={item.id}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-600 cursor-not-allowed text-sm font-medium"
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span>{item.name}</span>
-              </div>
-            );
-          }
 
           return (
             <Link

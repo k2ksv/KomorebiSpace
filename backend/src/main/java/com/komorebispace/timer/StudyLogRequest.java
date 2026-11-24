@@ -19,4 +19,19 @@ public record StudyLogRequest(
 
         @NotNull(message = "End time is required")
         LocalDateTime endedAt
-) {}
+) {
+    public boolean hasValidTimeRange() {
+        return startedAt != null
+                && endedAt != null
+                && endedAt.isAfter(startedAt)
+                && !endedAt.isAfter(java.time.LocalDateTime.now());
+    }
+
+    public boolean durationMatchesTimeRange() {
+        if (!hasValidTimeRange()) {
+            return false;
+        }
+        long rangeSeconds = java.time.Duration.between(startedAt, endedAt).getSeconds();
+        return rangeSeconds == durationSeconds;
+    }
+}
