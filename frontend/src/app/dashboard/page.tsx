@@ -53,15 +53,21 @@ export default function DashboardPage() {
           startedAtTime?: number;
           elapsed?: number;
         };
-        setMode(state.mode || 'stopwatch');
-        setPomodoroMinutes(state.pomodoroMinutes || 25);
-        setCategory(state.category || 'DSA');
-        if (state.isRunning && state.startedAtTime) {
-          startedAtRef.current = state.startedAtTime;
-          setElapsed(Math.floor((Date.now() - state.startedAtTime) / 1000));
-          setIsRunning(true);
-        } else {
-          setElapsed(state.elapsed || 0);
+        if (state && typeof state === 'object') {
+          setMode(state.mode === 'pomodoro' ? 'pomodoro' : 'stopwatch');
+          if (typeof state.pomodoroMinutes === 'number' && state.pomodoroMinutes > 0) {
+            setPomodoroMinutes(state.pomodoroMinutes);
+          }
+          if (state.category && categories.includes(state.category)) {
+            setCategory(state.category);
+          }
+          if (state.isRunning && state.startedAtTime) {
+            startedAtRef.current = state.startedAtTime;
+            setElapsed(Math.max(0, Math.floor((Date.now() - state.startedAtTime) / 1000)));
+            setIsRunning(true);
+          } else {
+            setElapsed(typeof state.elapsed === 'number' ? Math.max(0, state.elapsed) : 0);
+          }
         }
       } catch {
         localStorage.removeItem('komorebi_timer_state');
@@ -83,15 +89,23 @@ export default function DashboardPage() {
   const loadStats = useCallback(async () => {
     if (!user) return;
     try {
-      const logsResponse = await fetch(`${API_BASE_URL}/logs`, { credentials: 'include' });
+      // Fetch only the 4 most recent logs using the new pagination limit
+      const logsResponse = await fetch(`${API_BASE_URL}/logs?limit=4`, { credentials: 'include' });
       if (logsResponse.ok) {
         const logs = await logsResponse.json() as StudyLog[];
-        setRecentLogs(logs.slice(0, 4));
-        const today = new Date().toLocaleDateString();
-        setTodaySeconds(logs
-          .filter((log) => new Date(log.startedAt).toLocaleDateString() === today)
-          .reduce((sum, log) => sum + log.durationSeconds, 0));
+        setRecentLogs(logs);
+      } else if (logsResponse.status === 401) {
+        router.replace('/login');
+        return;
       }
+
+      // Fetch today's summary directly from optimized endpoint
+      const todayResponse = await fetch(`${API_BASE_URL}/logs/today`, { credentials: 'include' });
+      if (todayResponse.ok) {
+        const todayData = await todayResponse.json() as { totalSeconds: number };
+        setTodaySeconds(todayData.totalSeconds);
+      }
+
       const analyticsResponse = await fetch(`${API_BASE_URL}/analytics?days=30`, { credentials: 'include' });
       if (analyticsResponse.ok) {
         const analytics = await analyticsResponse.json();
@@ -100,7 +114,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Failed to load focus stats', error);
     }
-  }, [user]);
+  }, [user, router]);
 
   useEffect(() => {
     if (user) queueMicrotask(loadStats);
@@ -186,6 +200,10 @@ export default function DashboardPage() {
           endedAt: endedAt.toISOString().slice(0, 19),
         }),
       });
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
       if (!response.ok) throw new Error('Could not save the session');
       reset();
       setMessage('Session saved');
@@ -195,7 +213,7 @@ export default function DashboardPage() {
     } finally {
       setSaving(false);
     }
-  }, [elapsed, saving, category, reset, loadStats]);
+  }, [elapsed, saving, category, reset, loadStats, router]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {

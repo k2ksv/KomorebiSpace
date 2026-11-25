@@ -1,0 +1,44 @@
+# Environment variables
+.env
+.env*.local
+
+# Java / Maven
+backend/target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+.flattened-pom.xml
+
+# Node / Next.js
+frontend/node_modules/
+**/node_modules/
+frontend/.next/
+**/.next/
+frontend/out/
+**/out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Certificates & Keys
+*.crt
+*.key
+caddy-local-root.crt
+
+# IDE & Editors
+.idea/
+*.iml
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS metadata
+.DS_Store
+Thumbs.db

@@ -129,8 +129,9 @@ For a single public HTTPS domain, set `DOMAIN`, keep `NEXT_PUBLIC_API_BASE_URL=/
 * `GET /api/auth/me` - Retrieve current authenticated profile details.
 
 ### ⏱️ Time Module (`/api/logs`)
-* `POST /api/logs/save` - Save a finished stopwatch/pomodoro study session.
-* `GET /api/logs` - Retrieve chronological log history.
+* `POST /api/logs/save` - Save a finished stopwatch/pomodoro study session (with clock skew tolerance).
+* `GET /api/logs?limit={n}&page={p}` - Retrieve paginated study log history (default limit: 50).
+* `GET /api/logs/today` - Retrieve aggregated focus seconds for the current day.
 
 ### 📈 Analytics Module (`/api/analytics`)
 * `GET /api/analytics?days={count}` - Get aggregated focus stats (streaks, total times, trend arrays, category distributions). Default range is `7` days.

@@ -5,6 +5,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -25,6 +26,9 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt = Instant.now();
+
     // Constructors
     public User() {}
 
@@ -33,6 +37,15 @@ public class User implements UserDetails {
         this.email = email;
         this.username = username;
         this.password = password;
+        this.createdAt = Instant.now();
+    }
+
+    public User(Long id, String email, String username, String password, Instant createdAt) {
+        this.id = id;
+        this.email = email;
+        this.username = username;
+        this.password = password;
+        this.createdAt = createdAt != null ? createdAt : Instant.now();
     }
 
     // Builder
@@ -45,6 +58,7 @@ public class User implements UserDetails {
         private String email;
         private String username;
         private String password;
+        private Instant createdAt;
 
         public UserBuilder id(Long id) {
             this.id = id;
@@ -66,8 +80,13 @@ public class User implements UserDetails {
             return this;
         }
 
+        public UserBuilder createdAt(Instant createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
         public User build() {
-            return new User(id, email, username, password);
+            return new User(id, email, username, password, createdAt);
         }
     }
 
@@ -98,6 +117,14 @@ public class User implements UserDetails {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 
     // UserDetails implementations

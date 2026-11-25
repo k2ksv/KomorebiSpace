@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth, API_BASE_URL } from '@/context/AuthContext';
 import Sidebar from '@/components/Sidebar';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Flame, Clock, Calendar, PieChart as PieIcon, TrendingUp } from 'lucide-react';
+import { Flame, Clock, Calendar, PieChart as PieIcon, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface DailyFocus { date: string; durationSeconds: number }
 interface CategoryFocus { category: string; durationSeconds: number }
@@ -45,6 +45,7 @@ export default function AnalyticsPage() {
   const [days, setDays] = useState(7);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Protect Route
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function AnalyticsPage() {
   const fetchAnalytics = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    setError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/analytics?days=${days}`, {
         credentials: 'include',
@@ -65,15 +67,18 @@ export default function AnalyticsPage() {
       if (response.ok) {
         const data = await response.json();
         setAnalyticsData(data);
+      } else if (response.status === 401) {
+        router.replace('/login');
       } else {
-        console.error('Failed to fetch analytics');
+        setError('Failed to fetch analytics data from server');
       }
     } catch (e) {
       console.error('Error fetching analytics:', e);
+      setError('Network error. Unable to reach the server.');
     } finally {
       setLoading(false);
     }
-  }, [days, user]);
+  }, [days, user, router]);
 
   useEffect(() => {
     if (user) queueMicrotask(fetchAnalytics);
@@ -102,7 +107,6 @@ export default function AnalyticsPage() {
     return `${mins}m`;
   };
 
-  // Pie Chart Colors mapping
   const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899'];
 
   if (authLoading || !user) {
@@ -113,7 +117,6 @@ export default function AnalyticsPage() {
     );
   }
 
-  // Pre-process Category Data for Pie Chart
   const pieData = analyticsData?.categoryDistribution?.map((cat) => ({
     name: cat.category,
     value: cat.durationSeconds,
@@ -149,17 +152,32 @@ export default function AnalyticsPage() {
           </div>
         </header>
 
-        {loading || !analyticsData ? (
+        {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
             <span className="text-zinc-500 font-mono text-xs">Compiling stats...</span>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 rounded-2xl border border-rose-500/20 bg-rose-500/5 text-center">
+            <AlertCircle className="w-8 h-8 text-rose-400 mb-3" />
+            <p className="text-sm text-rose-300 font-medium mb-4">{error}</p>
+            <button
+              onClick={() => void fetchAnalytics()}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-xl text-xs font-semibold text-white transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Retry
+            </button>
+          </div>
+        ) : !analyticsData ? (
+          <div className="flex flex-col items-center justify-center py-20 text-zinc-500 text-sm">
+            No analytics data available. Complete focus sessions to view stats.
           </div>
         ) : (
           <>
             <section className="glass-panel rounded-2xl border border-zinc-800 p-6">
               <div className="mb-5 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-white">Focus activity</h2>
-                <span className="text-xs text-zinc-500">Last 30 days</span>
+                <span className="text-xs text-zinc-500">Last {days} days</span>
               </div>
               <div className="grid grid-cols-10 gap-2 sm:grid-cols-[repeat(15,minmax(0,1fr))]">
                 {analyticsData.dailyTrend.map((day) => {
@@ -178,7 +196,6 @@ export default function AnalyticsPage() {
 
             {/* Metric Summary Cards */}
             <section className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {/* Total Duration */}
               <div className="glass-panel p-5 rounded-2xl border border-zinc-850 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                   <Clock className="w-6 h-6" />
@@ -193,7 +210,6 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              {/* Total Sessions */}
               <div className="glass-panel p-5 rounded-2xl border border-zinc-850 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
                   <Calendar className="w-6 h-6" />
@@ -208,7 +224,6 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              {/* Average Duration */}
               <div className="glass-panel p-5 rounded-2xl border border-zinc-850 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
                   <TrendingUp className="w-6 h-6" />
@@ -223,7 +238,6 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              {/* Streak */}
               <div className="glass-panel p-5 rounded-2xl border border-zinc-850 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
                   <Flame className="w-6 h-6" />
@@ -241,7 +255,6 @@ export default function AnalyticsPage() {
 
             {/* Charts Section */}
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Daily Trend Area Chart */}
               <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-zinc-800 flex flex-col h-[400px]">
                 <h2 className="text-md font-semibold text-white tracking-tight mb-6 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
@@ -296,7 +309,6 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              {/* Category Pie Chart */}
               <div className="glass-panel p-6 rounded-2xl border border-zinc-800 flex flex-col h-[400px]">
                 <h2 className="text-md font-semibold text-white tracking-tight mb-6 flex items-center gap-2">
                   <PieIcon className="w-4 h-4 text-emerald-400" />
@@ -330,7 +342,6 @@ export default function AnalyticsPage() {
                         </ResponsiveContainer>
                       </div>
 
-                      {/* Custom Category Legend */}
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-[10px] w-full text-zinc-400 font-medium">
                         {pieData.map((entry, index) => (
                           <div key={entry.name} className="flex items-center gap-2 truncate">
@@ -345,7 +356,7 @@ export default function AnalyticsPage() {
                     </>
                   ) : (
                     <div className="h-full flex items-center justify-center text-zinc-600 text-xs text-center px-4">
-                      No logs logged yet. Complete study sessions on the dashboard to visualize distribution.
+                      No logs recorded yet. Complete study sessions on the dashboard to visualize distribution.
                     </div>
                   )}
                 </div>

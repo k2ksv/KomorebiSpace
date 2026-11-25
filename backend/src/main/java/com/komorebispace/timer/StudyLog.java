@@ -2,6 +2,7 @@ package com.komorebispace.timer;
 
 import com.komorebispace.auth.User;
 import jakarta.persistence.*;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Entity
@@ -28,16 +29,24 @@ public class StudyLog {
     @Column(name = "ended_at", nullable = false)
     private LocalDateTime endedAt;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt = Instant.now();
+
     // Constructors
     public StudyLog() {}
 
     public StudyLog(Long id, User user, String category, Integer durationSeconds, LocalDateTime startedAt, LocalDateTime endedAt) {
+        this(id, user, category, durationSeconds, startedAt, endedAt, Instant.now());
+    }
+
+    public StudyLog(Long id, User user, String category, Integer durationSeconds, LocalDateTime startedAt, LocalDateTime endedAt, Instant createdAt) {
         this.id = id;
         this.user = user;
         this.category = category;
         this.durationSeconds = durationSeconds;
         this.startedAt = startedAt;
         this.endedAt = endedAt;
+        this.createdAt = createdAt != null ? createdAt : Instant.now();
     }
 
     // Builder
@@ -52,6 +61,7 @@ public class StudyLog {
         private Integer durationSeconds;
         private LocalDateTime startedAt;
         private LocalDateTime endedAt;
+        private Instant createdAt;
 
         public StudyLogBuilder id(Long id) {
             this.id = id;
@@ -83,8 +93,13 @@ public class StudyLog {
             return this;
         }
 
+        public StudyLogBuilder createdAt(Instant createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
         public StudyLog build() {
-            return new StudyLog(id, user, category, durationSeconds, startedAt, endedAt);
+            return new StudyLog(id, user, category, durationSeconds, startedAt, endedAt, createdAt);
         }
     }
 
@@ -135,5 +150,13 @@ public class StudyLog {
 
     public void setEndedAt(LocalDateTime endedAt) {
         this.endedAt = endedAt;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

@@ -21,7 +21,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -41,9 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const userData = await response.json();
           setUser(userData);
+        } else {
+          setUser(null);
         }
       } catch (err) {
         console.error('Failed to validate token:', err);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -63,10 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Login failed. Please check credentials.');
+        const message = data?.detail || data?.message || 'Login failed. Please check credentials.';
+        throw new Error(message);
       }
 
       setUser({
@@ -95,10 +99,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, username, password }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed. User may already exist.');
+        const message = data?.detail || data?.message || 'Registration failed. User may already exist.';
+        throw new Error(message);
       }
 
       setUser({
@@ -117,12 +122,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    }).catch(() => undefined);
-    setUser(null);
-    router.push('/login');
+    try {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // Ignore network failures on logout
+    } finally {
+      setUser(null);
+      router.push('/login');
+    }
   };
 
   const clearError = useCallback(() => setError(null), []);

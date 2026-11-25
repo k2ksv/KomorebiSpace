@@ -17,7 +17,6 @@ public class AnalyticsService {
 
     private final StudyLogRepository studyLogRepository;
 
-    // Manual constructor for dependency injection
     public AnalyticsService(StudyLogRepository studyLogRepository) {
         this.studyLogRepository = studyLogRepository;
     }
@@ -28,8 +27,8 @@ public class AnalyticsService {
 
         List<StudyLog> logs = studyLogRepository.findByUserAndStartedAtBetween(user, startDateTime, endDateTime);
 
-        // Sort logs for streak calculation (all-time logs to calculate accurate streak)
-        List<StudyLog> allLogs = studyLogRepository.findByUserOrderByStartedAtDesc(user);
+        // Fetch lightweight timestamps for streak calculation to avoid loading all entity objects into memory
+        List<LocalDateTime> startedAtTimestamps = studyLogRepository.findStartedAtByUser(user);
 
         long totalDurationSeconds = logs.stream().mapToLong(StudyLog::getDurationSeconds).sum();
         long totalSessions = logs.size();
@@ -62,7 +61,7 @@ public class AnalyticsService {
                 .collect(Collectors.toList());
 
         // Streak calculation
-        int currentStreak = calculateStreak(allLogs);
+        int currentStreak = calculateStreak(startedAtTimestamps);
 
         return new AnalyticsResponse(
                 totalDurationSeconds,
@@ -74,13 +73,13 @@ public class AnalyticsService {
         );
     }
 
-    private int calculateStreak(List<StudyLog> logs) {
-        if (logs.isEmpty()) {
+    private int calculateStreak(List<LocalDateTime> timestamps) {
+        if (timestamps == null || timestamps.isEmpty()) {
             return 0;
         }
 
-        Set<LocalDate> uniqueDates = logs.stream()
-                .map(log -> log.getStartedAt().toLocalDate())
+        Set<LocalDate> uniqueDates = timestamps.stream()
+                .map(LocalDateTime::toLocalDate)
                 .collect(Collectors.toCollection(TreeSet::new)); // Ascending order
 
         LocalDate today = LocalDate.now();
@@ -93,13 +92,9 @@ public class AnalyticsService {
         int streak = 0;
         LocalDate checkDate = uniqueDates.contains(today) ? today : yesterday;
 
-        while (true) {
-            if (uniqueDates.contains(checkDate)) {
-                streak++;
-                checkDate = checkDate.minusDays(1);
-            } else {
-                break;
-            }
+        while (uniqueDates.contains(checkDate)) {
+            streak++;
+            checkDate = checkDate.minusDays(1);
         }
 
         return streak;

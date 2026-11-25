@@ -2,12 +2,17 @@ package com.komorebispace.timer;
 
 import com.komorebispace.auth.User;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,7 +22,6 @@ public class TimerController {
 
     private final StudyLogRepository studyLogRepository;
 
-    // Manual constructor for dependency injection
     public TimerController(StudyLogRepository studyLogRepository) {
         this.studyLogRepository = studyLogRepository;
     }
@@ -31,7 +35,7 @@ public class TimerController {
             return ResponseEntity.status(401).build();
         }
         if (!request.hasValidTimeRange()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start and end times must form a valid past time range");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start and end times must form a valid time range");
         }
         if (!request.durationMatchesTimeRange()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Duration must match the start and end time range");
@@ -51,17 +55,37 @@ public class TimerController {
     }
 
     @GetMapping
-    public ResponseEntity<List<StudyLogDto>> getLogs(@AuthenticationPrincipal User user) {
+    public ResponseEntity<List<StudyLogDto>> getLogs(
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @AuthenticationPrincipal User user
+    ) {
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
 
-        List<StudyLog> logs = studyLogRepository.findByUserOrderByStartedAtDesc(user);
-        List<StudyLogDto> dtos = logs.stream()
+        int pageSize = Math.min(Math.max(limit, 1), 100);
+        int pageNumber = Math.max(page, 0);
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        List<StudyLogDto> dtos = studyLogRepository.findByUserOrderByStartedAtDesc(user, pageable)
                 .map(this::mapToDto)
-                .collect(Collectors.toList());
+                .getContent();
 
         return ResponseEntity.ok(dtos);
+    }
+
+    @GetMapping("/today")
+    public ResponseEntity<TodaySummaryDto> getTodaySummary(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
+        Long totalSeconds = studyLogRepository.sumDurationSecondsForUserBetween(user, startOfDay, endOfDay);
+
+        return ResponseEntity.ok(new TodaySummaryDto(totalSeconds != null ? totalSeconds : 0L));
     }
 
     private StudyLogDto mapToDto(StudyLog log) {
@@ -78,7 +102,9 @@ public class TimerController {
             Long id,
             String category,
             Integer durationSeconds,
-            java.time.LocalDateTime startedAt,
-            java.time.LocalDateTime endedAt
+            LocalDateTime startedAt,
+            LocalDateTime endedAt
     ) {}
+
+    public record TodaySummaryDto(long totalSeconds) {}
 }
